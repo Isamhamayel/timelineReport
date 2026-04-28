@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bazytrack Go Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#f7f7f7; margin:0; padding:14px; color:#222; }
+    .container { max-width:1400px; margin:auto; }
+    .card { background:#fff; border-radius:10px; padding:10px; margin-bottom:10px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+    h1,h2 { margin:0 0 8px 0; }
+    .toolbar-grid { display:grid; grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr auto; gap:6px; align-items:end; }
+    label { display:block; font-weight:bold; margin-bottom:4px; font-size:13px; }
+    input, select, textarea { width:100%; padding:6px 8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; font-size:13px; background:#fff; }
+    .icon-buttons { display:flex; gap:6px; align-items:end; }
+    button.icon-btn { width:36px; height:34px; padding:0; border:0; border-radius:6px; background:#0b57d0; color:#fff; cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; }
+    button.icon-btn:hover { opacity:.92; }
+    button.icon-btn:disabled { opacity:.6; cursor:not-allowed; }
+    .summary-line { margin-top:8px; padding:8px; border:1px solid #e5e5e5; border-radius:8px; background:#fafafa; font-weight:bold; font-size:13px; line-height:1.8; white-space:normal; }
+    .loading { display:none; margin-top:8px; font-weight:bold; color:#0b57d0; font-size:13px; }
+    .error { color:#b00020; font-weight:bold; margin-top:8px; font-size:13px; }
+    .success { color:#0a7a28; font-weight:bold; margin-top:8px; font-size:13px; }
+    .timeline-wrap { margin-top:8px; border:1px solid #ddd; border-radius:8px; background:#fff; padding:10px; }
+    .timeline-bar { display:flex; width:100%; height:28px; overflow:hidden; border-radius:6px; border:1px solid #ccc; background:#fafafa; }
+    .timeline-segment { height:100%; min-width:0; cursor:pointer; border-left:1px solid rgba(255,255,255,.55); box-sizing:border-box; }
+    .timeline-times { margin-top:6px; display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#555; }
+    .timeline-legend { margin-top:8px; display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:#333; }
+    .legend-item { display:flex; align-items:center; gap:5px; }
+    .legend-color { width:14px; height:14px; border-radius:3px; border:1px solid #bbb; display:inline-block; }
+    table { width:100%; border-collapse:collapse; background:#fff; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:right; vertical-align:top; font-size:13px; }
+    th { background:#f0f0f0; }
+    thead.sticky-head th { position:sticky; top:138px; z-index:10; background:#f0f0f0; }
+    tr.status-تشويش { background:#f4cccc; color:#990000; }
+    tr.status-إيقاف { background:#f5f5f2; color:#555555; }
+    tr.status-حركة { background:#b8f5b8; color:#1b5e20; }
+    tr.status-توقف { background:#fffdf2; color:#7f6000; }
+    .table-wrap { border:1px solid #ddd; border-radius:8px; overflow:visible; }
+    .muted { color:#666; font-size:13px; }
+    textarea { min-height:120px; resize:vertical; direction:rtl; }
+    .location-wrap { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .location-link { color:#0b57d0; text-decoration:underline; cursor:pointer; }
+    .mini-action { display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 6px; border:0; border-radius:6px; background:#0b57d0; color:#fff; cursor:pointer; font-size:13px; line-height:1; }
+    .mini-action:hover { opacity:.92; }
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:3000; align-items:center; justify-content:center; padding:16px; }
+    .modal-box { width:min(900px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:10px; box-shadow:0 2px 20px rgba(0,0,0,.2); padding:12px; }
+    .modal-small { width:min(420px, 100%); }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .modal-actions { display:flex; gap:6px; align-items:center; }
+    .close-btn { border:0; border-radius:6px; background:#b00020; color:#fff; cursor:pointer; padding:6px 10px; font-size:13px; }
+    #singleMap, #allBlocksMap { width:100%; height:500px; border:1px solid #ddd; border-radius:8px; }
+    .modal-note { font-size:12px; color:#666; margin:6px 0 10px; }
+    @media (max-width: 1000px) { .toolbar-grid { grid-template-columns: 1fr 1fr; } .icon-buttons { justify-content:flex-start; } thead.sticky-head th { top:190px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card" id="topStickyCard" style="position:sticky; top:0; z-index:1000; background:#fff;">
+      <div class="toolbar-grid">
+        <div><label>الجهاز</label><select id="deviceSelect"><option value="">جاري تحميل الأجهزة...</option></select></div>
+        <div><label>من تاريخ</label><input type="date" id="fromDate"></div>
+        <div><label>من وقت</label><input type="time" id="fromTime" value="00:00:00" step="1"></div>
+        <div><label>إلى تاريخ</label><input type="date" id="toDate"></div>
+        <div><label>إلى وقت</label><input type="time" id="toTime" value="23:59:59" step="1"></div>
+        <div class="icon-buttons">
+          <button class="icon-btn" onclick="buildReport()" title="إنشاء التقرير">🔍</button>
+          <button class="icon-btn" onclick="prepareCheckedText()" title="تحضير النص المحدد">💬</button>
+          <button class="icon-btn" onclick="exportExcel()" title="تصدير Excel">📊</button>
+          <button class="icon-btn" onclick="exportPDF()" title="تصدير PDF">📄</button>
+          <button class="icon-btn" onclick="showAllBlocksMap()" title="عرض كل البلوكات على الخريطة">🗺️</button>
+        </div>
+      </div>
+      <div class="summary-line">
+        الجهاز: <span id="sumDevice">-</span> |
+        من: <span id="sumFrom">-</span> |
+        إلى: <span id="sumTo">-</span> |
+        الإيقاف: <span id="sumOff">-</span> |
+        الحركة: <span id="sumMove">-</span> |
+        التوقف: <span id="sumIdle">-</span> |
+        المسافة: <span id="sumDistance">-</span> كم
+      </div>
+      <div class="loading" id="loading">جاري التنفيذ...</div>
+      <div class="error" id="error"></div>
+      <div class="success" id="success"></div>
+    </div>
+
+    <div id="reportExportArea">
+      <div class="card">
+        <div class="timeline-wrap">
+          <div id="timelineBar" class="timeline-bar"><div class="muted" style="padding:4px 8px;">لا توجد بيانات بعد.</div></div>
+          <div class="timeline-times"><span id="timelineStart">-</span><span id="timelineEnd">-</span></div>
+          <div class="timeline-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#b8f5b8;"></span> حركة</span>
+            <span class="legend-item"><span class="legend-color" style="background:#fffdf2;"></span> توقف</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f5f5f2;"></span> إيقاف</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f4cccc;"></span> تشويش</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="reportTable">
+            <thead class="sticky-head"><tr><th>#</th><th>اختيار</th><th>رمز</th><th>الحالة</th><th>بداية</th><th>نهاية</th><th>المدة</th><th>المسافة (كم)</th><th>متوسط السرعة (كم/س)</th><th>أقصى سرعة (كم/س)</th><th>الموقع</th></tr></thead>
+            <tbody id="reportBody"><tr><td colspan="11" class="muted">لا توجد بيانات بعد.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card"><h2>النص الناتج من الصفوف المحددة</h2><textarea id="checkedText" readonly></textarea></div>
+  </div>
+
+  <div class="modal-backdrop" id="singleMapModal"><div class="modal-box"><div class="modal-header"><h2>الموقع</h2><button class="close-btn" onclick="closeModal('singleMapModal')">إغلاق</button></div><div id="singleMap"></div></div></div>
+  <div class="modal-backdrop" id="allBlocksModal"><div class="modal-box"><div class="modal-header"><h2>كل البلوكات على الخريطة</h2><button class="close-btn" onclick="closeModal('allBlocksModal')">إغلاق</button></div><div id="allBlocksMap"></div></div></div>
+  <div class="modal-backdrop" id="geofenceModal"><div class="modal-box modal-small"><div class="modal-header"><h2>إضافة جيوفنس دائري</h2><button class="close-btn" onclick="closeModal('geofenceModal')">إغلاق</button></div><input type="hidden" id="gfLat"><input type="hidden" id="gfLon"><div><label>الاسم</label><input type="text" id="gfName" placeholder="اسم الجيوفنس"></div><div style="margin-top:8px;"><label>نصف القطر بالمتر</label><input type="number" id="gfRadius" min="1" step="1" placeholder="مثال: 100"></div><div style="margin-top:8px;"><label>اللون</label><select id="gfColor"><option value="#0b57d0">أزرق</option><option value="#198754">أخضر</option><option value="#ff0000">أحمر</option><option value="#ff8f00">برتقالي</option><option value="#6f42c1">بنفسجي</option><option value="#ffff00">أصفر</option><option value="#20c997">فيروزي</option><option value="#6c757d">رمادي</option><option value="#000000">أسود</option></select></div><div class="modal-note" id="gfCoordsText"></div><div class="modal-actions" style="margin-top:10px;"><button class="icon-btn" style="width:auto; padding:0 12px;" onclick="saveCircleGeofence()">حفظ</button></div></div></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const APP_CONFIG = {
+      baseUrl: 'https://go.bazytrack.jo',
+      token: ''
+    };
+    const AMMAN_TZ = 'Asia/Amman';
+    const CACHE_TTL_MS = 60 * 1000;
+    const MAX_REPORT_HOURS = 168;
+
+    let currentReport = null;
+    let singleMap = null;
+    let allBlocksMap = null;
+    const memoryCache = new Map();
+
+    function getToken() {
+      const params = new URLSearchParams(location.search);
+      const token = APP_CONFIG.token || params.get('token') || sessionStorage.getItem('bazytrack_token') || localStorage.getItem('bazytrack_token') || '';
+      if (token) sessionStorage.setItem('bazytrack_token', token);
+      return token;
+    }
+
+    function getBaseUrl() {
+      return String(APP_CONFIG.baseUrl || 'https://go.bazytrack.jo').replace(/\/$/, '');
+    }
+
+    async function apiRequest(path, options) {
+      const token = getToken();
+      if (!token) throw new Error('لم يتم العثور على صلاحية الدخول. افتح الصفحة من النظام بنفس طريقة الرابط القديم أو ضع التوكن داخل APP_CONFIG في الملف.');
+      const res = await fetch(getBaseUrl() + path, {
+        method: options && options.method ? options.method : 'GET',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/json',
+          ...(options && options.body ? { 'Content-Type': 'application/json; charset=utf-8' } : {})
+        },
+        body: options && options.body ? options.body : undefined
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+      if (!res.ok) throw new Error('API error ' + res.status + ': ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+      return data;
+    }
+
+    async function cached(key, loader) {
+      const hit = memoryCache.get(key);
+      if (hit && Date.now() - hit.time < CACHE_TTL_MS) return hit.value;
+      const value = await loader();
+      memoryCache.set(key, { time: Date.now(), value: value });
+      return value;
+    }
+
+    function setTodayDefaults() {
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      document.getElementById('fromDate').value = today;
+      document.getElementById('toDate').value = today;
+    }
+    function showLoading(show) { document.getElementById('loading').style.display = show ? 'block' : 'none'; }
+    function setError(msg) { document.getElementById('error').textContent = msg || ''; }
+    function setSuccess(msg) { document.getElementById('success').textContent = msg || ''; }
+    function clearMessages() { setError(''); setSuccess(''); }
+    function getSelectedDeviceId() { return document.getElementById('deviceSelect').value || ''; }
+    function getSelectedDeviceName() { const select = document.getElementById('deviceSelect'); const option = select.options[select.selectedIndex]; return option ? option.text : ''; }
+    function getConfig() { return { fromDate: document.getElementById('fromDate').value, fromTime: document.getElementById('fromTime').value || '00:00:00', toDate: document.getElementById('toDate').value, toTime: document.getElementById('toTime').value || '23:59:59', selectedDeviceId: getSelectedDeviceId(), selectedDeviceName: getSelectedDeviceName() }; }
+
+    function renderDevices(devices) {
+      const select = document.getElementById('deviceSelect');
+      if (!devices || !devices.length) { select.innerHTML = '<option value="">لا توجد أجهزة</option>'; return; }
+      select.innerHTML = devices.map(function(d) { return '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.name || '') + '</option>'; }).join('');
+      if (window.$ && $.fn.select2) { $('#deviceSelect').trigger('change'); }
+    }
+
+    function renderSummary(summary) {
+      document.getElementById('sumDevice').textContent = summary.selectedDeviceName || '-';
+      document.getElementById('sumFrom').textContent = summary.from || '-';
+      document.getElementById('sumTo').textContent = summary.to || '-';
+      document.getElementById('sumOff').textContent = summary.offDuration || '-';
+      document.getElementById('sumMove').textContent = summary.movingDuration || '-';
+      document.getElementById('sumIdle').textContent = summary.idleDuration || '-';
+      document.getElementById('sumDistance').textContent = summary.movingDistance != null ? summary.movingDistance : '-';
+    }
+
+    function renderLocationCell(b, i) {
+      const addressText = escapeHtml(b.address || '');
+      if (b.lat == null || b.lon == null || isNaN(Number(b.lat)) || isNaN(Number(b.lon))) return addressText || '-';
+      const lat = Number(b.lat); const lon = Number(b.lon);
+      return '<div class="location-wrap"><a class="location-link" href="https://www.google.com/maps?q=' + lat + ',' + lon + '&t=k" target="_blank">' + (addressText || 'عرض الموقع') + '</a><button class="mini-action" title="عرض الموقع" onclick="openSingleMap(' + lat + ',' + lon + ',' + i + ')">📍</button><button class="mini-action" title="إضافة جيوفنس دائري" onclick="openGeofenceModal(' + i + ')">⭕</button></div>';
+    }
+
+    function renderReportRows(blocks) {
+      const tbody = document.getElementById('reportBody');
+      if (!blocks || !blocks.length) { tbody.innerHTML = '<tr><td colspan="11" class="muted">لا توجد بيانات.</td></tr>'; return; }
+      tbody.innerHTML = blocks.map(function(b, i) {
+        return '<tr class="status-' + escapeHtml(b.status) + '" id="report-row-' + i + '"><td>' + (i + 1) + '</td><td><input type="checkbox" class="row-check" data-index="' + i + '"></td><td>' + escapeHtml(b.icon || '') + '</td><td>' + escapeHtml(b.status || '') + '</td><td>' + escapeHtml(b.startText || '') + '</td><td>' + escapeHtml(b.endText || '') + '</td><td>' + escapeHtml(b.durationText || '') + '</td><td>' + escapeHtml(String(b.distance != null ? b.distance : 0)) + '</td><td>' + escapeHtml(String(b.avgSpeed != null ? b.avgSpeed : 0)) + '</td><td>' + escapeHtml(String(b.maxSpeed != null ? b.maxSpeed : 0)) + '</td><td>' + renderLocationCell(b, i) + '</td></tr>';
+      }).join('');
+    }
+
+    function getTimelineColor(status) { if (status === 'حركة') return '#b8f5b8'; if (status === 'توقف') return '#fffdf2'; if (status === 'إيقاف') return '#f5f5f2'; if (status === 'تشويش') return '#f4cccc'; return '#ddd'; }
+    function getBlockDurationSec(block) { const n = Number(block && block.durationSec); return n > 0 ? n : 1; }
+    function renderTimeline(blocks) {
+      const bar = document.getElementById('timelineBar'); const startEl = document.getElementById('timelineStart'); const endEl = document.getElementById('timelineEnd');
+      if (!blocks || !blocks.length) { bar.innerHTML = '<div class="muted" style="padding:4px 8px;">لا توجد بيانات بعد.</div>'; startEl.textContent = '-'; endEl.textContent = '-'; return; }
+      const totalDuration = blocks.reduce(function(sum, b) { return sum + getBlockDurationSec(b); }, 0);
+      startEl.textContent = blocks[0].startText || '-'; endEl.textContent = blocks[blocks.length - 1].endText || '-';
+      bar.innerHTML = blocks.map(function(b, i) {
+        const durationSec = getBlockDurationSec(b); const widthPercent = totalDuration > 0 ? ((durationSec / totalDuration) * 100) : 0;
+        const title = [b.status || '', 'من: ' + (b.startText || ''), 'إلى: ' + (b.endText || ''), 'المدة: ' + (b.durationText || ''), 'الموقع: ' + (b.address || 'بدون موقع')].join(' | ');
+        return '<div class="timeline-segment" title="' + escapeHtml(title) + '" style="flex:0 0 ' + widthPercent + '%; background:' + getTimelineColor(b.status) + ';" onclick="scrollToReportRow(' + i + ')"></div>';
+      }).join('');
+    }
+    function scrollToReportRow(index) { const row = document.getElementById('report-row-' + index); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+    async function loadDevices() {
+      clearMessages(); showLoading(true);
+      try {
+        const devices = await cached('devices', function() { return apiRequest('/api/devices'); });
+        renderDevices((devices || []).map(function(d) { return { id: d.id, name: d.name || '' }; }));
+        setSuccess('تم تحميل الأجهزة.');
+      } catch (err) { setError((err && err.message) || 'حدث خطأ أثناء تحميل الأجهزة.'); }
+      finally { showLoading(false); }
+    }
+
+    function combineToIso(dateStr, timeStr) { const d = new Date(String(dateStr) + 'T' + (String(timeStr || '00:00:00').trim() || '00:00:00')); if (isNaN(d.getTime())) throw new Error('Invalid date/time.'); return d.toISOString().replace(/\.\d{3}Z$/, 'Z'); }
+    function assertRange(fromIso, toIso) { const hours = (new Date(toIso) - new Date(fromIso)) / 36e5; if (hours < 0) throw new Error('وقت النهاية يجب أن يكون بعد وقت البداية.'); if (hours > MAX_REPORT_HOURS) throw new Error('الفترة كبيرة جداً للمتصفح. اختر فترة لا تتجاوز ' + MAX_REPORT_HOURS + ' ساعة.'); }
+
+    async function buildReport() {
+      clearMessages(); const cfg = getConfig();
+      if (!cfg.selectedDeviceId) { setError('يرجى اختيار جهاز.'); return; }
+      showLoading(true);
+      try {
+        const fromIso = combineToIso(cfg.fromDate, cfg.fromTime); const toIso = combineToIso(cfg.toDate, cfg.toTime); assertRange(fromIso, toIso);
+        const geofences = await cached('geofences', function() { return apiRequest('/api/geofences'); });
+        const positions = await apiRequest('/api/positions?deviceId=' + encodeURIComponent(cfg.selectedDeviceId) + '&from=' + encodeURIComponent(fromIso) + '&to=' + encodeURIComponent(toIso));
+        currentReport = makeReport(cfg, positions || [], geofences || [], fromIso, toIso);
+        renderSummary(currentReport.summary || {}); renderTimeline(currentReport.blocks || []); renderReportRows(currentReport.blocks || []); document.getElementById('checkedText').value = ''; setSuccess('تم إنشاء التقرير بنجاح.');
+      } catch (err) { setError((err && err.message) || 'حدث خطأ أثناء إنشاء التقرير.'); }
+      finally { showLoading(false); }
+    }
+
+    function makeReport(cfg, positions, geofences, fromIso, toIso) {
+      const geofenceMap = {}; (geofences || []).forEach(function(g) { geofenceMap[String(g.id)] = g.name || ''; });
+      positions = (positions || []).sort(function(a, b) { return new Date(a.fixTime) - new Date(b.fixTime); });
+      if (!positions.length) throw new Error('No positions found for selected period.');
+      const blocks = buildBlocks(positions, geofenceMap);
+      let offDuration = 0, movingDuration = 0, idleDuration = 0, movingDistance = 0;
+      const finalBlocks = blocks.map(function(b) {
+        if (b.status === 'إيقاف') offDuration += b.durationSec;
+        if (b.status === 'حركة') { movingDuration += b.durationSec; movingDistance += b.distance; }
+        if (b.status === 'توقف') { movingDistance += b.distance; idleDuration += b.durationSec; }
+        return { icon: b.icon, status: b.status, startText: toAmmanDate(b.start), endText: toAmmanDate(b.end), startTimeOnly: formatTimeOnlyAmman(b.start), endTimeOnly: formatTimeOnlyAmman(b.end), durationText: formatDuration(b.durationSec), durationSec: b.durationSec, distance: round2(b.distance), avgSpeed: round2(b.avgSpeed), maxSpeed: round2(b.maxSpeed), address: b.address || '', geofenceName: b.geofenceName || '', lat: isFinite(b.lat) ? b.lat : null, lon: isFinite(b.lon) ? b.lon : null };
+      });
+      return { summary: { selectedDeviceName: cfg.selectedDeviceName || '', from: toAmmanDate(fromIso), to: toAmmanDate(toIso), offDuration: formatDuration(offDuration), movingDuration: formatDuration(movingDuration), idleDuration: formatDuration(idleDuration), movingDistance: round2(movingDistance) }, blocks: finalBlocks };
+    }
+
+    function buildBlocks(positions, geofenceMap) {
+      const blocks = [];
+      for (let i = 0; i < positions.length; i++) {
+        const p = positions[i]; const next = positions[i + 1]; const attrs = p.attributes || {};
+        const ignition = attrs.ignition === true; const speed = Number(p.speed || 0) * 1.852; const distance = Number(attrs.distance || 0) / 1000; const newDistance = Number(attrs.deviceDistance || 0) / 1000 || distance;
+        const isInvalid = p.valid === false || newDistance > 15 || distance > 10;
+        let status = 'إيقاف'; let icon = '⚫️';
+        if (isInvalid && ignition) { status = 'تشويش'; icon = '🔴'; } else if (ignition && speed >= 0.01) { status = 'حركة'; icon = '🟢'; } else if (ignition && speed < 0.01) { status = 'توقف'; icon = '🟡'; }
+        const geofenceId = (Array.isArray(p.geofenceIds) && p.geofenceIds.length > 0) ? String(p.geofenceIds[0]) : ''; const geofenceName = geofenceId ? (geofenceMap[geofenceId] || '') : ''; const address = geofenceName || p.address || '';
+        const start = new Date(p.fixTime); const end = next ? new Date(next.fixTime) : new Date(p.fixTime); const durationSec = Math.max(0, Math.floor((end - start) / 1000));
+        const item = { status: status, icon: icon, start: start, end: end, durationSec: durationSec, distance: (status === 'حركة' || status === 'توقف') ? distance : 0, speedSum: speed, speedCount: 1, avgSpeed: speed, maxSpeed: speed, address: address, geofenceName: geofenceName, lat: Number(p.latitude), lon: Number(p.longitude) };
+        const last = blocks[blocks.length - 1];
+        if (last && ((((last.status === 'إيقاف' || last.status === 'تشويش') && (item.status === 'إيقاف' || item.status === 'تشويش'))) || (last.status === item.status && last.geofenceName === item.geofenceName))) {
+          last.end = item.end; last.durationSec += item.durationSec; last.distance += item.distance; last.speedSum += item.speedSum; last.speedCount += item.speedCount; last.avgSpeed = last.speedCount ? (last.speedSum / last.speedCount) : 0; last.maxSpeed = Math.max(last.maxSpeed, item.maxSpeed); if (!last.address && item.address) last.address = item.address; if ((!isFinite(last.lat) || last.lat === null) && isFinite(item.lat)) last.lat = item.lat; if ((!isFinite(last.lon) || last.lon === null) && isFinite(item.lon)) last.lon = item.lon;
+        } else { blocks.push(item); }
+      }
+      return blocks;
+    }
+
+    function prepareCheckedText() {
+      clearMessages(); if (!currentReport || !currentReport.blocks) { setError('قم بإنشاء التقرير أولاً.'); return; }
+      const checked = Array.from(document.querySelectorAll('.row-check:checked')).map(function(ch) { return currentReport.blocks[Number(ch.dataset.index)]; });
+      const lines = checked.map(function(row) { return [(row.icon || '') + ' ' + (row.status || ''), 'من: ' + (row.startTimeOnly || ''), 'إلى: ' + (row.endTimeOnly || ''), 'المدة: ' + (row.durationText || ''), row.address ? ('الموقع: ' + row.address) : ''].filter(Boolean).join(' | '); });
+      const finalText = ['الجهاز: ' + (currentReport.summary.selectedDeviceName || ''), 'من: ' + (currentReport.summary.from || ''), 'إلى: ' + (currentReport.summary.to || ''), '', lines.join('\n\n') || 'لا توجد صفوف محددة'].join('\n');
+      document.getElementById('checkedText').value = finalText; setSuccess('تم تحضير النص.');
+    }
+
+    function exportExcel() {
+      if (!currentReport || !currentReport.blocks || !currentReport.blocks.length) { setError('لا يوجد تقرير لتصديره.'); return; }
+      clearMessages(); const summary = currentReport.summary || {}; const blocks = currentReport.blocks || []; const excelRows = [];
+      excelRows.push(['الجهاز', summary.selectedDeviceName || '']); excelRows.push(['من', summary.from || '']); excelRows.push(['إلى', summary.to || '']); excelRows.push(['مدة الإيقاف', summary.offDuration || '']); excelRows.push(['مدة الحركة', summary.movingDuration || '']); excelRows.push(['مدة التوقف', summary.idleDuration || '']); excelRows.push(['المسافة المقطوعة (كم)', summary.movingDistance != null ? summary.movingDistance : '']); excelRows.push([]);
+      excelRows.push(['#', 'رمز', 'الحالة', 'بداية', 'نهاية', 'المدة', 'المسافة (كم)', 'متوسط السرعة (كم/س)', 'أقصى سرعة (كم/س)', 'الموقع']);
+      blocks.forEach(function(b, i) { excelRows.push([i + 1, b.icon || '', b.status || '', b.startText || '', b.endText || '', b.durationText || '', b.distance != null ? b.distance : 0, b.avgSpeed != null ? b.avgSpeed : 0, b.maxSpeed != null ? b.maxSpeed : 0, b.address || '']); });
+      const worksheet = XLSX.utils.aoa_to_sheet(excelRows); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, 'Report'); XLSX.writeFile(workbook, buildExportFileName('xlsx'));
+    }
+
+    async function exportPDF() {
+      if (!currentReport || !currentReport.blocks || !currentReport.blocks.length) { setError('لا يوجد تقرير لتصديره.'); return; }
+      clearMessages(); const topCard = document.getElementById('topStickyCard'); const oldPosition = topCard.style.position; const oldTop = topCard.style.top;
+      try { topCard.style.position = 'static'; topCard.style.top = ''; const reportArea = document.getElementById('reportExportArea'); const canvas = await html2canvas(reportArea, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }); const jsPDF = window.jspdf.jsPDF; const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = 210; const pdfHeight = 297; const margin = 10; const usableWidth = pdfWidth - margin * 2; const imgWidth = usableWidth; const imgHeight = (canvas.height * imgWidth) / canvas.width; let heightLeft = imgHeight; let position = margin; pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight); heightLeft -= (pdfHeight - margin * 2); while (heightLeft > 0) { pdf.addPage(); position = margin - (imgHeight - heightLeft); pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight); heightLeft -= (pdfHeight - margin * 2); } pdf.save(buildExportFileName('pdf')); } catch (e) { setError('فشل في تصدير PDF: ' + ((e && e.message) || e)); } finally { topCard.style.position = oldPosition; topCard.style.top = oldTop; }
+    }
+
+    function buildExportFileName(ext) { const device = String((currentReport && currentReport.summary && currentReport.summary.selectedDeviceName) || 'report').replace(/[\\/:*?"<>|]/g, '_'); const from = String((currentReport && currentReport.summary && currentReport.summary.from) || '').replace(/[\\/:*?"<>| ]/g, '_'); const to = String((currentReport && currentReport.summary && currentReport.summary.to) || '').replace(/[\\/:*?"<>| ]/g, '_'); return device + '_' + from + '_' + to + '.' + ext; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function openSingleMap(lat, lon, index) {
+      clearMessages(); if (lat == null || lon == null || isNaN(Number(lat)) || isNaN(Number(lon))) { setError('لا توجد إحداثيات لهذا البلوك.'); return; }
+      document.getElementById('singleMapModal').style.display = 'flex';
+      setTimeout(function () { if (singleMap) { singleMap.remove(); singleMap = null; } singleMap = L.map('singleMap').setView([Number(lat), Number(lon)], 16); singleMap.createPane('labelsPane'); singleMap.getPane('labelsPane').style.zIndex = 350; var imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri', maxZoom: 19 }).addTo(singleMap); var labels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { attribution: 'Labels © Esri', maxZoom: 19, pane: 'labelsPane' }).addTo(singleMap); L.control.layers({ "Satellite": imagery }, { "Labels": labels }).addTo(singleMap); const block = currentReport && currentReport.blocks ? currentReport.blocks[index] : null; const popupLines = []; popupLines.push('<b>بلوك ' + (index + 1) + '</b>'); if (block && block.status) popupLines.push('الحالة: ' + escapeHtml(block.status)); if (block && block.address) popupLines.push('الموقع: ' + escapeHtml(block.address)); var marker = L.marker([Number(lat), Number(lon)]).addTo(singleMap).bindPopup(popupLines.join('<br>')).openPopup(); marker.setZIndexOffset(1000); setTimeout(function () { singleMap.invalidateSize(); }, 100); }, 50);
+    }
+
+    function showAllBlocksMap() {
+      clearMessages(); if (!currentReport || !currentReport.blocks || !currentReport.blocks.length) { setError('قم بإنشاء التقرير أولاً.'); return; }
+      const validBlocks = currentReport.blocks.filter(function(b) { return b.lat != null && b.lon != null && !isNaN(Number(b.lat)) && !isNaN(Number(b.lon)); }); if (!validBlocks.length) { setError('لا توجد إحداثيات متاحة لعرضها على الخريطة.'); return; }
+      document.getElementById('allBlocksModal').style.display = 'flex';
+      setTimeout(function() { if (allBlocksMap) { allBlocksMap.remove(); allBlocksMap = null; } allBlocksMap = L.map('allBlocksMap'); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(allBlocksMap); const bounds = []; currentReport.blocks.forEach(function(b, i) { if (b.lat == null || b.lon == null || isNaN(Number(b.lat)) || isNaN(Number(b.lon))) return; const lat = Number(b.lat); const lon = Number(b.lon); bounds.push([lat, lon]); const popupLines = []; popupLines.push('<b>بلوك ' + (i + 1) + '</b>'); if (b.status) popupLines.push('الحالة: ' + escapeHtml(b.status)); if (b.startText) popupLines.push('البداية: ' + escapeHtml(b.startText)); if (b.endText) popupLines.push('النهاية: ' + escapeHtml(b.endText)); if (b.address) popupLines.push('الموقع: ' + escapeHtml(b.address)); const marker = L.marker([lat, lon]).addTo(allBlocksMap); marker.bindPopup(popupLines.join('<br>')); marker.bindTooltip(String(i + 1), { permanent: true, direction: 'top', offset: [0, -10] }); }); if (bounds.length) { allBlocksMap.fitBounds(bounds, { padding: [30, 30] }); } else { allBlocksMap.setView([31.95, 35.91], 8); } setTimeout(function() { allBlocksMap.invalidateSize(); }, 100); }, 50);
+    }
+
+    function openGeofenceModal(index) {
+      clearMessages(); if (!currentReport || !currentReport.blocks || !currentReport.blocks[index]) { setError('قم بإنشاء التقرير أولاً.'); return; }
+      const block = currentReport.blocks[index]; if (block.lat == null || block.lon == null || isNaN(Number(block.lat)) || isNaN(Number(block.lon))) { setError('لا توجد إحداثيات لهذا البلوك.'); return; }
+      document.getElementById('gfLat').value = Number(block.lat); document.getElementById('gfLon').value = Number(block.lon); document.getElementById('gfName').value = block.address ? ('GF - ' + block.address) : ('GF - Block ' + (index + 1)); document.getElementById('gfRadius').value = 100; document.getElementById('gfColor').value = '#0b57d0'; document.getElementById('gfCoordsText').textContent = 'Lat: ' + Number(block.lat) + ', Lon: ' + Number(block.lon); document.getElementById('geofenceModal').style.display = 'flex';
+    }
+
+    async function saveCircleGeofence() {
+      clearMessages(); const name = document.getElementById('gfName').value.trim(); const radius = Number(document.getElementById('gfRadius').value); const color = document.getElementById('gfColor').value; const lat = Number(document.getElementById('gfLat').value); const lon = Number(document.getElementById('gfLon').value);
+      if (!name) { setError('يرجى إدخال اسم الجيوفنس.'); return; } if (!radius || radius <= 0) { setError('يرجى إدخال نصف قطر صحيح بالمتر.'); return; }
+      showLoading(true);
+      try { const result = await apiRequest('/api/geofences', { method: 'POST', body: JSON.stringify({ name: String(name), area: 'CIRCLE (' + lat + ' ' + lon + ', ' + radius + ')', attributes: { color: color || '#0b57d0' } }) }); memoryCache.delete('geofences'); closeModal('geofenceModal'); setSuccess('تم حفظ الجيوفنس بنجاح: ' + ((result && result.name) || name)); } catch (err) { setError((err && err.message) || 'حدث خطأ أثناء حفظ الجيوفنس.'); } finally { showLoading(false); }
+    }
+
+    function escapeHtml(value) { return String(value == null ? '' : value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
+    function formatDuration(sec) { sec = Number(sec || 0); const h = Math.floor(sec / 3600); const m = Math.floor((sec % 3600) / 60); const s = sec % 60; if (h > 0) return h + ' ساعة ' + m + ' دقيقة ' + s + ' ثانية'; return m + ' دقيقة ' + s + ' ثانية'; }
+    function round2(n) { return Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100; }
+    function formatTimeOnlyAmman(value) { const d = new Date(value); if (isNaN(d.getTime())) return String(value); return new Intl.DateTimeFormat('en-GB', { timeZone: AMMAN_TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
+    function toAmmanDate(value) { const d = new Date(value); if (isNaN(d.getTime())) return String(value); const parts = new Intl.DateTimeFormat('ar-JO-u-ca-gregory', { timeZone: AMMAN_TZ, weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(d); const m = Object.fromEntries(parts.map(function(p) { return [p.type, p.value]; })); return m.weekday + ' ' + m.year + '-' + m.month + '-' + m.day + ' ' + m.hour + ':' + m.minute + ':' + m.second; }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setTodayDefaults();
+      loadDevices();
+      setTimeout(function() { if (window.$ && $.fn.select2) { $('#deviceSelect').select2({ placeholder: 'اختر الجهاز', width: '100%', dir: 'rtl', minimumResultsForSearch: 0 }); } }, 300);
+    });
+  </script>
+</body>
+</html>
